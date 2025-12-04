@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # 1. OSRM Service (Routing Engine)
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend
+    container_name: osrm-server
+    # Expose OSRM on host port 5000 for local testing and your FastAPI backend
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/data
+    command: osrm-routed --algorithm mld /data/romania-latest.osrm
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/route/v1/driving/26.1025,44.4268;46.7712,23.6236?overview=false"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # 2. VROOM Service (Optimization Engine)
+  vroom:
+    image: ghcr.io/vroom-project/vroom-docker:v1.14.0 # Use a stable tag
+    container_name: vroom-backend
+    # Expose VROOM on host port 3000 for your FastAPI backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./conf:/conf # For logs and config.yml
+    environment:
+      # Tell VROOM to use the 'osrm' service name and default port 5000
+      # as defined in the default config.yml inside the container.
+      - VROOM_ROUTER=osrm
+      - VROOM_ROUTER_URL=http://osrm:5000
+      - VROOM_LOG=INFO
+    depends_on:
+      # VROOM requires OSRM to be healthy before starting
+      osrm:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # FastAPI Backend
+  backend:
+    # image: route-optimizer-backend:v.1.0.0 #FOR PROD
+    build:
+      context: ./vrp-backend
+      dockerfile: Dockerfile
+    container_name: vrp-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - VROOM_URL=http://vroom:3000
+      - OSRM_URL=http://osrm:5000
+    depends_on:
+      - vroom
+      - osrm
+    networks:
+      - vrp-network
+    restart: unless-stopped
+    # For development: mount code for hot reload
+    # volumes:
+    #   - ./vrp-backend:/app
+
+  # React Frontend
+  frontend:
+  # image: route-optimizer-frontend:v.1.0.0 #FOR PROD
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - vrp-network
+    restart: unless-stopped
+
+networks:
+  vrp-network:
+    driver: bridge
