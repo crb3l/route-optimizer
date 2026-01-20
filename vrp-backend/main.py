@@ -2,6 +2,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
+import os
+import requests # for the nominatim
+from fastapi import Query # for the nominatim
 from typing import List, Optional
 
 VROOM_URL = os.getenv("VROOM_URL", "http://localhost:3000")
@@ -12,7 +15,9 @@ app = FastAPI(title="Vehicle Routing API")
 # Enable CORS for your React frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:3001",],  # React dev servers
+    # allow_origins_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",#remove before prod
+    # allow_origins=["http://127.0.0.1","http://localhost","http://localhost:80","http://localhost:3000", "http://localhost:5173", "http://localhost:3001",],  # React dev servers,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -92,7 +97,8 @@ async def optimize_route(request: OptimizationRequest):
         # Prepare VROOM request
         vroom_request = {
             "vehicles": [v.dict(exclude_none=True) for v in request.vehicles],
-            "jobs": [j.dict(exclude_none=True) for j in request.jobs]
+            "jobs": [j.dict(exclude_none=True) for j in request.jobs],
+            # "options":{"g": True}
         }
         
         # Call VROOM
@@ -149,6 +155,19 @@ async def get_route(start: List[float], end: List[float]):
             status_code=500,
             detail=f"Error calling OSRM service: {str(e)}"
         )
+    
+@app.get("/reverse")
+async def reverse_geocode(lat: float = Query(...), lon: float = Query(...)):
+
+    url = "https://nominatim.openstreetmap.org/reverse"
+    params = {"format":"json", "lat": lat, "lon":lon, "zoom":18, "addressdetails":1}
+    resp = requests.get(url, params=params, headers={"User-Agent": "MyApp"})
+    if resp.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Nominatim error: {resp.status_code}"
+        )
+    return resp.json()
 
 if __name__ == "__main__":
     import uvicorn

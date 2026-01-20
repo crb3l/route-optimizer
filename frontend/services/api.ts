@@ -5,9 +5,10 @@ const API_URL = 'http://localhost:8000';
 
 export const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
   try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
-    );
+    // const response = await fetch(
+    //   `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+    // );
+    const response = await fetch(`http://localhost:8000/reverse?lat=${lat}&lon=${lng}`);
     const data = await response.json();
     return data.display_name?.split(',')[0] || 'Unknown Location';
   } catch (error) {

@@ -1,22 +1,23 @@
-version: '3.8'
-
 services:
   # 1. OSRM Service (Routing Engine)
   osrm:
     image: ghcr.io/project-osrm/osrm-backend
-    container_name: osrm-server
+    container_name: osrm-backend
     # Expose OSRM on host port 5000 for local testing and your FastAPI backend
     ports:
       - "5000:5000"
     volumes:
-      - ./data:/data
+      - ./vroom-docker/data:/data
     command: osrm-routed --algorithm mld /data/romania-latest.osrm
+    networks:
+      - vrp-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/route/v1/driving/26.1025,44.4268;46.7712,23.6236?overview=false"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:5000/route/v1/driving/26.1025,44.4268;46.7712,23.6236?overview=false"]
+    #   # test: ["CMD", "wget", "-q", "spider", "http://localhost:5000/route/v1/driving/26.1025,44.4268;46.7712,23.6236?overview=false"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
 
   # 2. VROOM Service (Optimization Engine)
   vroom:
@@ -30,16 +31,20 @@ services:
     environment:
       # Tell VROOM to use the 'osrm' service name and default port 5000
       # as defined in the default config.yml inside the container.
+      - VROOM_CONFIG=/conf/config.yml
       - VROOM_ROUTER=osrm
       - VROOM_ROUTER_URL=http://osrm:5000
       - VROOM_LOG=INFO
-    depends_on:
-      # VROOM requires OSRM to be healthy before starting
-      osrm:
-        condition: service_healthy
+    # depends_on:
+      # VROOM requires OSRM to be healthy before starting - if healthcheck is enabled (its not because osrm-backend does not have it in the Dockerfile and I don't want to make a dockerfile, a manual test is enough for me)
+      # osrm:
+      #   condition: service_healthy
+    networks:
+      - vrp-network
     restart: unless-stopped
+    # command: ["-r", "osrm", "a", "osrm:5000"]
 
-  # FastAPI Backend
+  #3: FastAPI Backend
   backend:
     # image: route-optimizer-backend:v.1.0.0 #FOR PROD
     build:
@@ -51,9 +56,9 @@ services:
     environment:
       - VROOM_URL=http://vroom:3000
       - OSRM_URL=http://osrm:5000
-    depends_on:
-      - vroom
-      - osrm
+    # depends_on:
+    #   - vroom
+    #   - osrm
     networks:
       - vrp-network
     restart: unless-stopped
@@ -61,17 +66,17 @@ services:
     # volumes:
     #   - ./vrp-backend:/app
 
-  # React Frontend
+  # 4: React Frontend
   frontend:
   # image: route-optimizer-frontend:v.1.0.0 #FOR PROD
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: frontend
+    container_name: vrp-frontend
     ports:
       - "80:80"
-    depends_on:
-      - backend
+    # depends_on:
+    #   - backend
     networks:
       - vrp-network
     restart: unless-stopped

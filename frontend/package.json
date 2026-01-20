@@ -9,11 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-dom": "^19.2.1",
-    "lucide-react": "^0.555.0",
+    "@tailwindcss/vite": "^4.1.18",
     "leaflet": "^1.9.4",
+    "lucide-react": "^0.555.0",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
     "react-leaflet": "^5.0.0",
-    "react": "^19.2.1"
+    "tailwindcss": "^4.1.18"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
