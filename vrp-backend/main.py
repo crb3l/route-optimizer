@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import httpx
 import os
 import requests # for the nominatim
+import time
 from fastapi import Query # for the nominatim
 from typing import List, Optional
 
@@ -37,6 +38,7 @@ class Job(BaseModel):
 
 class Vehicle(BaseModel):
     id: int
+    profile: str = "car" #maybe it works if i added it now
     start: List[float]  # [lon, lat]
     end: Optional[List[float]] = None  # [lon, lat], defaults to start
     capacity: Optional[List[int]] = None  # vehicle capacity
@@ -98,9 +100,9 @@ async def optimize_route(request: OptimizationRequest):
         vroom_request = {
             "vehicles": [v.dict(exclude_none=True) for v in request.vehicles],
             "jobs": [j.dict(exclude_none=True) for j in request.jobs],
-            # "options":{"g": True}
+            "options":{"g": True} # to have a land path view instead of aerial path
         }
-        
+        print(f"Sending to VROOM ({VROOM_URL}):", vroom_request) # Debug print
         # Call VROOM
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
@@ -109,8 +111,19 @@ async def optimize_route(request: OptimizationRequest):
             )
             response.raise_for_status()
             
+            # Print error details if VROOM fails
+            if response.status_code != 200:
+                print(f"VROOM Error {response.status_code}: {response.text}")
+                
+            response.raise_for_status()
+
         result = response.json()
-        
+
+        # Check internal VROOM error codes (sometimes it returns 200 OK but with code != 0)
+        if result.get("code", 0) != 0:
+            print(f"VROOM Logic Error: {result.get('error')}")
+
+
         return OptimizationResponse(
             code=result.get("code", 0),
             summary=result.get("summary", {}),
@@ -158,16 +171,22 @@ async def get_route(start: List[float], end: List[float]):
     
 @app.get("/reverse")
 async def reverse_geocode(lat: float = Query(...), lon: float = Query(...)):
+    time.sleep(1)
 
     url = "https://nominatim.openstreetmap.org/reverse"
     params = {"format":"json", "lat": lat, "lon":lon, "zoom":18, "addressdetails":1}
-    resp = requests.get(url, params=params, headers={"User-Agent": "MyApp"})
-    if resp.status_code != 200:
-        raise HTTPException(
-            status_code=502,
-            detail=f"Nominatim error: {resp.status_code}"
-        )
-    return resp.json()
+    headers = {"User-Agent": "RouteOptimizer_proj (crb3l@proton.me)"}
+    try:
+        resp = requests.get(url, params=params, headers=headers)
+        if resp.status_code != 200:
+            print(f"Nominatim returned {resp.status_code}: {resp.text}")
+            raise HTTPException(
+                status_code=502,
+                detail=f"Nominatim error: {resp.status_code}"
+            )
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

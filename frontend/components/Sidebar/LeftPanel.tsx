@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useRef } from 'react'; // for button added by ai
+
 import { useApp } from '../../context/AppContext';
 import { Button } from '../UI/Button';
 import { Card, CardContent } from '../UI/Card';
-import { Truck, MapPin, Package, Trash2, Plus, Play, MoreVertical } from 'lucide-react';
+import { Truck, MapPin, Package, Trash2, Plus, Play, MoreVertical, Upload } from 'lucide-react';
 import { Location } from '../../types';
 
 export const LeftPanel: React.FC = () => {
@@ -14,11 +16,35 @@ export const LeftPanel: React.FC = () => {
     removeJob,
     runOptimization,
     isLoading,
-    clearAllJobs
+    clearAllJobs,
+    addJobsFromJson
   } = useApp();
 
   const vehicle = vehicles[0];
-  const [activeTab, setActiveTab] = useState<'jobs' | 'vehicle'>('jobs');
+  const [activeTab, setActiveTab] = useState<'jobs' | 'vehicle' | 'jobss'>('jobs');
+
+  // Create a ref for the hidden file input
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Handler for file selection
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const json = JSON.parse(e.target?.result as string);
+        addJobsFromJson(json);
+      } catch (err) {
+        console.error(err);
+        alert("Failed to parse JSON file.");
+      }
+      // Reset input so you can upload the same file again if needed
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsText(file);
+  };
 
   return (
     <div className="w-full h-full flex flex-col bg-white/95 backdrop-blur-sm border-r border-slate-200 shadow-xl overflow-hidden">
@@ -42,11 +68,51 @@ export const LeftPanel: React.FC = () => {
           >
             Vehicle
           </button>
+          {/* <button
+            onClick={() => setActiveTab('jobss')}
+            className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${activeTab === 'jobss' ? 'bg-white shadow text-slate-900' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            Upload
+          </button> */}
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
+
+        {activeTab === 'jobss' && (
+          <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
+
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{jobs.length} Jobs Added</span>
+
+              <div className="flex gap-2">
+                {/* Hidden File Input */}
+                <input
+                  type="file"
+                  accept=".json"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+
+                {/* Upload Button */}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline"
+                >
+                  <Upload className="w-3 h-3" />
+                  Import JSON
+                </button>
+
+                <button onClick={clearAllJobs} className="text-xs text-red-500 hover:text-red-600 hover:underline">
+                  Clear All
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
 
         {activeTab === 'vehicle' && (
           <div className="space-y-4 animate-in fade-in slide-in-from-left-4 duration-300">
@@ -83,6 +149,23 @@ export const LeftPanel: React.FC = () => {
           <div className="space-y-3 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="flex justify-between items-center mb-2">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{jobs.length} Jobs Added</span>
+              {/* Hidden File Input */}
+              <input
+                type="file"
+                accept=".json"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+
+              {/* Upload Button */}
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="text-xs flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                <Upload className="w-3 h-3" />
+                Import JSON
+              </button>
               <button onClick={clearAllJobs} className="text-xs text-red-500 hover:text-red-600 hover:underline">Clear All</button>
             </div>
 

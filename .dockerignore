@@ -1,0 +1,19 @@
+# Version control
+.git/
+.github/
+.gitignore
+
+# Dependencies (installed in container)
+node_modules/
+
+# Build outputs (built in container)
+dist/
+
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+docs/

@@ -81,6 +81,24 @@ services:
       - vrp-network
     restart: unless-stopped
 
+  # 5: Cloudflare tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-tunnel
+    command: tunnel --no-autoupdate run
+    # environment:
+    #   - "TUNNEL_TOKEN=${TUNNEL_TOKEN}"  # We'll create this
+    #OR use config file method:
+    volumes:
+      - /home/user/.cloudflared/config.yml:/etc/cloudflared/config.yml
+      - /home/user/.cloudflared/a87a5fa4-32cb-4b00-8cdd-33160175b666.json:/etc/cloudflared/a87a5fa4-32cb-4b00-8cdd-33160175b666.json
+    # depends_on:
+    #   - frontend
+    #   - backend
+    networks:
+      - vrp-network
+    restart: unless-stopped
+
 networks:
   vrp-network:
     driver: bridge

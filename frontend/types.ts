@@ -29,6 +29,7 @@ export interface RouteStep {
   load: number[];
   jobId?: number;
   address?: string;
+  geometry?: string;
 }
 
 export interface Route {
@@ -36,6 +37,7 @@ export interface Route {
   steps: RouteStep[];
   totalDistance: number;
   totalDuration: number;
+  geometry?: string;
 }
 
 export interface OptimizationSummary {

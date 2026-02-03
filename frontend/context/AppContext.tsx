@@ -3,6 +3,7 @@ import { Job, Vehicle, OptimizationResult, Location } from '../types';
 import { optimizeRoute, reverseGeocode } from '../services/api';
 
 interface AppContextType {
+  jobId: number;
   vehicles: Vehicle[];
   jobs: Job[];
   result: OptimizationResult | null;
@@ -15,6 +16,9 @@ interface AppContextType {
   runOptimization: () => Promise<void>;
   clearAllJobs: () => void;
   setHighlightedStep: (stepIdx: number | null) => void;
+
+  // made by creator
+  addJobsFromJson: (json: any) => void
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -37,25 +41,60 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [highlightedStep, setHighlightedStep] = useState<number | null>(null);
+  const [jobId, setJobId] = useState(1);
 
   const addJob = useCallback(async (location: Location) => {
     // If no address provided, try to fetch it
     let address = location.address;
     if (!address) {
-       address = await reverseGeocode(location.lat, location.lng);
+      try {
+        address = await reverseGeocode(location.lat, location.lng);
+      } catch (error) {
+        console.warn("Could not fetch addy, using coordy", error);
+        address = `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`;
+      }
     }
-
     const newJob: Job = {
-      id: Date.now(), // simple unique id
+      // id: Date.now(), // simple unique id
+      id: jobId,
       location: { ...location, address },
       deliveryAmount: 10,
       serviceTime: 300
     };
 
     setJobs(prev => [...prev, newJob]);
+    setJobId(prev => prev + 1);
     // Invalidate previous results when data changes
     setResult(null);
-  }, []);
+  }, [jobId]);// addedjobId to dependency array even though I do not klnow what that means, mr. gemini told me this
+
+
+  //voiam sa o fac eu, dar gemini a avut altceva de zis
+  const addJobsFromJson = useCallback((jsonData: any[]) => {
+    // 1. Basic validation
+    if (!Array.isArray(jsonData)) {
+      alert("Invalid JSON format: Expected an array of locations.");
+      return;
+    }
+
+    // 2. Map JSON data to your Job structure
+    // We start IDs from the current jobId + index to avoid duplicates
+    const newJobs: Job[] = jsonData.map((item, index) => ({
+      id: jobId + index,
+      location: {
+        lat: Number(item.lat),
+        lng: Number(item.lng),
+        address: item.address || "Imported Location"
+      },
+      deliveryAmount: Number(item.delivery) || 10,
+      serviceTime: Number(item.service) || 300
+    }));
+
+    // 3. Update state
+    setJobs(prev => [...prev, ...newJobs]);
+    setJobId(prev => prev + newJobs.length); // Increment global ID counter
+    setResult(null); // Clear previous route results
+  }, [jobId]);
 
   const updateJob = useCallback((id: number, updates: Partial<Job>) => {
     setJobs(prev => prev.map(j => j.id === id ? { ...j, ...updates } : j));
@@ -74,6 +113,7 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
 
   const clearAllJobs = useCallback(() => {
     setJobs([]);
+    setJobId(1)
     setResult(null);
   }, []);
 
@@ -98,13 +138,15 @@ export const AppProvider = ({ children }: { children?: ReactNode }) => {
       result,
       isLoading,
       highlightedStep,
+      jobId, //added to fix shit in right panel
       addJob,
       updateJob,
       removeJob,
       updateVehicle,
       runOptimization,
       clearAllJobs,
-      setHighlightedStep
+      setHighlightedStep,
+      addJobsFromJson
     }}>
       {children}
     </AppContext.Provider>

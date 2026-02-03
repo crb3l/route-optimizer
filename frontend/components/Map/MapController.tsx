@@ -4,6 +4,10 @@ import L from 'leaflet';
 import { useApp } from '../../context/AppContext';
 import { Job, RouteStep } from '../../types';
 
+//used to make a land path instead of air path for routing
+import polyline from '@mapbox/polyline';
+
+
 // Fix for default Leaflet markers in React
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -72,7 +76,82 @@ export const MapController: React.FC = () => {
   // Decode route coordinates from result if available
   const routePositions = useMemo(() => {
     if (!result || !result.routes[0]) return [];
+    // this was before my implementation
+    // return result.routes[0].steps.map(step => [step.location[1], step.location[0]] as [number, number]);
+
+    // //my implementation starts now
+
+    // console.log('Full VROOM result:', result);
+    // console.log('First step:', result.routes[0].steps[0]);
+    // console.log('Second step:', result.routes[0].steps[1]);
+    // const positions: [number, number][] = [];
+
+    const route = result.routes[0]; // changesd steps.geomtry with route.gemoetry to see if that is the problem. becuase mabe the whoule route is shown, not the geometry per individual steps
+    console.log('Route object:', route);
+    console.log('Route has geometry:', !!route.geometry);
+    // route.steps.forEach(step => {
+    if (route.geometry) {
+      try {
+        const coords = polyline.decode(route.geometry);
+        console.log(`Decoded ${coords.length} coordinates from route geometry`);
+        console.log('First coord:', coords[0]);
+        // coords.forEach(coord => { positions.push([coord[1], coord[0]]); })
+        return coords.map(coord => [coord[0], coord[1]] as [number, number]);
+      } catch (error) {
+        console.log("Error decoding", error);
+      }
+    }
+    //this is also for steps
+    // else {
+    //   positions.push([step.location[1], step.location[0]]);
+    // }
+
+    // });
+    //if no route gemoetry use step geometry
     return result.routes[0].steps.map(step => [step.location[1], step.location[0]] as [number, number]);
+    // return positions; //commented because it works with steps.geo not with route.geo
+    // const routePositions = useMemo(() => {
+    //   if (!result || !result.routes[0]) return [];
+
+    //   console.log('=== DEBUGGING ROUTE POSITIONS ===');
+    //   console.log('Total steps:', result.routes[0].steps.length);
+
+    //   const positions: [number, number][] = [];
+
+    //   result.routes[0].steps.forEach((step, index) => {
+    //     console.log(`Step ${index}:`, {
+    //       type: step.type,
+    //       hasGeometry: !!step.geometry,
+    //       geometryLength: step.geometry?.length || 0,
+    //       location: step.location
+    //     });
+
+    //     if (step.geometry) {
+    //       try {
+    //         const coords = polyline.decode(step.geometry);
+    //         console.log(`  Decoded ${coords.length} coordinates`);
+    //         console.log(`  First coord:`, coords[0]);
+    //         console.log(`  Last coord:`, coords[coords.length - 1]);
+
+    //         coords.forEach(coord => {
+    //           positions.push([coord[0], coord[1]]);
+    //         });
+    //       } catch (error) {
+    //         console.error(`  Error decoding geometry:`, error);
+    //         positions.push([step.location[1], step.location[0]]);
+    //       }
+    //     } else {
+    //       console.log(`  No geometry, using direct location`);
+    //       positions.push([step.location[1], step.location[0]]);
+    //     }
+    //   });
+
+    //   console.log(`Total positions after processing: ${positions.length}`);
+    //   console.log('First 3 positions:', positions.slice(0, 3));
+    //   console.log('Last 3 positions:', positions.slice(-3));
+    //   console.log('=== END DEBUG ===');
+
+    //   return positions;
   }, [result]);
 
   const allPoints = useMemo(() => {

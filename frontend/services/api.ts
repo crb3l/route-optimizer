@@ -1,7 +1,8 @@
 import { Job, Vehicle, OptimizationResult } from '../types';
 import { mockOptimizationResponse } from './mockData';
 
-const API_URL = 'http://localhost:8000';
+// const API_URL = 'http://localhost:8000';
+const API_URL = 'https://apivrum.treideee.ro';
 
 export const reverseGeocode = async (lat: number, lng: number): Promise<string> => {
   try {
@@ -9,6 +10,12 @@ export const reverseGeocode = async (lat: number, lng: number): Promise<string> 
     //   `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
     // );
     const response = await fetch(`http://localhost:8000/reverse?lat=${lat}&lon=${lng}`);
+    
+    //check if api call works
+    if (!response.ok) {
+        throw new Error(`Geocoding failed: ${response.statusText}`);
+    }
+
     const data = await response.json();
     return data.display_name?.split(',')[0] || 'Unknown Location';
   } catch (error) {
